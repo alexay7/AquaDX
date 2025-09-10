@@ -49,7 +49,6 @@ class Chu3UserAll(
     var userChargeList: List<UserCharge>? = null,
     var userCourseList: List<UserCourse>? = null,
     var userDuelList: List<UserDuel>? = null,
-    // TODO: Actually implement team
     var userTeamPoint: List<UpsertTeamPoint>? = null,
     var userRatingBaseHotList: List<UserRecentRating>? = null,
     var userRatingBaseList: List<UserRecentRating>? = null,

@@ -7,8 +7,10 @@ import icu.samnyan.aqua.sega.chusan.ChusanData
 import icu.samnyan.aqua.sega.chusan.model.request.UserCMissionResp
 import icu.samnyan.aqua.sega.chusan.model.userdata.Chu3UserItem
 import icu.samnyan.aqua.sega.chusan.model.userdata.UserMusicDetail
+import icu.samnyan.aqua.sega.chusan.model.XVerseTeamEmblems
 import icu.samnyan.aqua.sega.general.model.CardStatus
 import icu.samnyan.aqua.sega.general.model.response.UserRecentRating
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Suppress("UNCHECKED_CAST")
@@ -31,8 +33,8 @@ fun ChusanController.chusanInit() {
     // VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE VERSE
     "GetGameCourseLevel" {
         // gameCourseLevelList: [{courseId: int, startDate: date, endDate: date}]
-        mapOf("length" to 0, "gameCourseLevelList" to listOf(
-            mapOf("courseId" to 300004, "startDate" to "2019-01-01 00:00:00", "endDate" to "2077-01-01 11:45:14"),
+        mapOf("length" to 2, "gameCourseLevelList" to listOf(
+            mapOf("courseId" to 400001, "startDate" to "2019-01-01 00:00:00", "endDate" to "2077-01-01 11:45:14"),
             mapOf("courseId" to 300009, "startDate" to "2019-01-01 00:00:00", "endDate" to "2077-01-01 11:45:14")
         ))
     }
@@ -78,8 +80,43 @@ fun ChusanController.chusanInit() {
     // Stub handlers
     "GetGameIdlist" { """{"type":"${data["type"]}","length":"0","gameIdlistList":[]}""" }
 
-    "GetTeamCourseSetting" { """{"userId":"${data["userId"]}","length":"0","nextIndex":"0","teamCourseSettingList":[]}""" }
-    "GetTeamCourseRule" { """{"userId":"${data["userId"]}","length":"0","nextIndex":"0","teamCourseRuleList":[]}""" }
+    "GetTeamCourseSetting" {
+        mapOf(
+            "userId" to data["userId"],
+            "length" to 1,
+            "nextIndex" to -1,
+            "teamCourseSettingList" to listOf(
+                mapOf(
+                    "ruleId" to 91,
+                    "teamCourseMusicList" to listOf(
+                        mapOf("track" to 385, "type" to 0, "level" to 3, "selectLevel" to -1),
+                        mapOf("track" to 376, "type" to 0, "level" to 3, "selectLevel" to -1),
+                        mapOf("track" to 411, "type" to 0, "level" to 3, "selectLevel" to -1)
+                    ),
+                    "teamCourseRankingInfoList" to empty,
+                    "recodeDate" to "2099-12-31 11:59:99.0",
+                    "isPlayed" to false
+                )
+            )
+        )
+    }
+    "GetTeamCourseRule" {
+        mapOf(
+            "userId" to data["userId"],
+            "length" to 1,
+            "nextIndex" to -1,
+            "teamCourseRuleList" to listOf(
+                mapOf(
+                    "recoveryLife" to 0,
+                    "clearLife" to 100,
+                    "damageMiss" to 1,
+                    "damageAttack" to 0,
+                    "damageJustice" to 0,
+                    "damageJusticeC" to 0
+                )
+            )
+        )
+    }
     "GetUserCtoCPlay" { """{"userId":"${data["userId"]}","orderBy":"0","count":"0","userCtoCPlayList":[]}""" }
     "GetUserRivalMusic" { """{"userId":"${data["userId"]}","rivalId":"0","length":"0","nextIndex":"0","userRivalMusicList":[]}""" }
     "GetUserRivalData" { """{"userId":"${data["userId"]}","length":"0","userRivalData":[]}""" }
@@ -278,13 +315,43 @@ fun ChusanController.chusanInit() {
 
     "GetUserTeam" {
         val playDate = parsing { data["playDate"] as String }
-        val team = db.userData.findByCard_ExtId(uid)()?.card?.aquaUser?.gameOptions?.chusanTeamName?.some
-            ?: props.teamName?.some ?:  "一緒に歌おう！"
+        val currentPeriod = LocalDate.now().withDayOfMonth(1)
 
-        mapOf(
-            "userId" to uid, "teamId" to 1, "teamRank" to 1, "teamName" to team,
-            "userTeamPoint" to mapOf("userId" to uid, "teamId" to 1, "orderId" to 1, "teamPoint" to 1, "aggrDate" to playDate)
-        )
+        val userTeam = db.userTeam.findSingleByUser_Card_ExtId(uid)()
+
+        if (userTeam == null) mapOf("userId" to uid, "teamId" to 0, "teamRank" to 0, "teamName" to "", "emblemId" to 0, "userTeamPoint" to null)
+        else {
+            val teamPoint =
+                db.userTeamPoints.findByUser_Card_ExtIdAndTeamIdAndMonthDate(uid,userTeam.team.id,currentPeriod)()
+            // Calculate the position of the team in the ranking
+            val teamRank = userTeam.let { db.userTeamPoints.findTeamRankingPosition(it.team.id, currentPeriod)()?:99999L }
+
+            // Calculate the color of the banner (Since XVerse)
+            var emblemColor = XVerseTeamEmblems.GRAY
+
+            //  if (teamRank<=10) emblemColor = XVerseTeamEmblems.RAINBOW
+            //  else if (teamRank<=40) emblemColor = XVerseTeamEmblems.GOLD
+            //  else if (teamRank<=70) emblemColor = XVerseTeamEmblems.SILVER
+            if (userTeam.team.lastMonthPoints >= 500000) emblemColor = XVerseTeamEmblems.PURPLE
+            else if (userTeam.team.lastMonthPoints >= 300000) emblemColor = XVerseTeamEmblems.RED
+            else if (userTeam.team.lastMonthPoints >= 150000) emblemColor = XVerseTeamEmblems.ORANGE
+            else if (userTeam.team.lastMonthPoints >= 50000) emblemColor = XVerseTeamEmblems.GREEN
+
+            mapOf(
+                "userId" to uid,
+                "teamId" to userTeam.team.id,
+                "teamRank" to teamRank,
+                "teamName" to userTeam.team.teamName,
+                "emblemId" to emblemColor,
+                "userTeamPoint" to mapOf(
+                    "userId" to uid,
+                    "teamId" to userTeam.team.id,
+                    "orderId" to 1,
+                    "teamPoint" to (teamPoint?.monthlyPoints ?: 0),
+                    "aggrDate" to playDate
+                )
+            )
+        }
     }
 
     "GetUserRegion" {

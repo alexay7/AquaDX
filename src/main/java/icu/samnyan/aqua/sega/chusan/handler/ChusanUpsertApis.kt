@@ -5,6 +5,7 @@ import icu.samnyan.aqua.sega.chusan.ChusanController
 import icu.samnyan.aqua.sega.chusan.model.request.Chu3UserAll
 import icu.samnyan.aqua.sega.chusan.model.userdata.*
 import icu.samnyan.aqua.sega.general.model.response.UserRecentRating
+import java.time.LocalDate
 
 @Suppress("UNCHECKED_CAST")
 fun ChusanController.upsertApiInit() {
@@ -71,17 +72,33 @@ fun ChusanController.upsertApiInit() {
                 misc.favMusic = list.map { it.musicId }.mut
             }
 
-            // Net battle data
-            userNetBattleData?.getOrNull(0)?.let {
-                misc.recentNbSelect = it.recentNBSelectMusicList.map { it.musicId }.mut
-            }
-
             // Add the battle log songs to misc
             if (userNetBattlelogList != null) {
                 val music = userMusicDetailList?.map { it.musicId } ?: emptyList()
                 misc.recentNbMusic = (misc.recentNbMusic + music).distinct().takeLast(10).mut
             }
             db.userMisc.save(misc)
+
+            // Team Points
+            userTeamPoint?.getOrNull(0)?.let { tp ->
+                var previousUserPoints = 0L
+                val currentMonthPeriod = LocalDate.now().withDayOfMonth(1)
+                val utp = (db.userTeamPoints.findByUserAndTeamIdAndMonthDate(u, tp.teamId, currentMonthPeriod) ?: UserTeamPoints().apply {
+                    previousUserPoints = 0
+                    user = u
+                    teamId = teamId
+                    monthlyPoints = monthlyPoints
+                    monthDate = currentMonthPeriod
+                }).apply {
+                    previousUserPoints = this.monthlyPoints
+                    user = u
+                    teamId = tp.teamId
+                    monthlyPoints = tp.teamPoint
+                    monthDate = currentMonthPeriod
+                }
+
+                db.userTeamPoints.save(utp)
+            }
 
             // Playlog
             userPlaylogList?.let { db.userPlaylog.saveAll(it) }

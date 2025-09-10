@@ -3,7 +3,10 @@ package icu.samnyan.aqua.sega.chusan.model
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import icu.samnyan.aqua.net.games.BaseEntity
+import icu.samnyan.aqua.sega.chusan.model.userdata.Chu3UserData
 import jakarta.persistence.*
+import org.hibernate.annotations.Fetch
+import org.hibernate.annotations.FetchMode
 import java.time.LocalDateTime
 
 
@@ -91,4 +94,26 @@ class GameLoginBonusPreset : IdExposedEntity() {
     var version = 0
     var presetName: String? = null
     var isEnabled = false
+}
+
+@Entity(name = "ChusanTeam")
+@Table(name = "chusan_team")
+class Team : IdExposedEntity() {
+    var teamName: String? = null
+    var lastMonthPoints: Long = 0
+    @OneToOne
+    @JoinColumn(name = "owner", referencedColumnName = "id")
+    @Fetch(FetchMode.JOIN)
+    var owner: Chu3UserData? = null
+}
+
+enum class XVerseTeamEmblems(val type: Int) {
+    GRAY(0),
+    RAINBOW(1),
+    GOLD(2),
+    SILVER(3),
+    PURPLE(4),
+    RED(5),
+    ORANGE(6),
+    GREEN(7)
 }

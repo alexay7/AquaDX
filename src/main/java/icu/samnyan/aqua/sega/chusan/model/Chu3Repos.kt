@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.NoRepositoryBean
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 import java.util.*
 
 
@@ -178,6 +179,41 @@ interface Chu3UserRegionsRepo: Chu3UserLinked<UserRegions> {
     fun findByUserAndRegionId(user: Chu3UserData, regionId: Int): UserRegions?
 }
 
+interface Chu3TeamRepo : JpaRepository<Team, Long> {
+    fun findSingleByOwner(owner: Chu3UserData): Optional<Team>
+}
+
+interface Chu3UserTeamRepo : Chu3UserLinked<UserTeam> {
+    // Count the number of unique members in a team
+    @Query(value = "SELECT COUNT(DISTINCT user_id) FROM chusan_user_team WHERE team = ?1", nativeQuery = true)
+    fun countTeamMembers(teamId: Long): Int
+}
+
+interface Chu3UserTeamPointsRepo: Chu3UserLinked<UserTeamPoints> {
+    fun findByUserAndTeamIdAndMonthDate(user: Chu3UserData, teamId: Long, monthDate: LocalDate): UserTeamPoints?
+    fun findByUser_Card_ExtIdAndTeamIdAndMonthDate(extId: Long, teamId: Long, monthDate: LocalDate): Optional<UserTeamPoints>
+
+    // Sort teams by points of all its users and get index of the team at the current period
+    @Query(value = "WITH ranked AS (SELECT team_id, SUM(monthly_points) AS total_points,RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS team_rank, month_date FROM chusan_user_team_points WHERE month_date >= ?2 GROUP BY team_id, month_date) SELECT team_rank FROM ranked WHERE team_id = ?1", nativeQuery = true)
+    fun findTeamRankingPosition(teamId: Long, monthDate: LocalDate): Optional<Long>
+
+    @Query(value="SELECT team_id AS teamId, SUM(monthly_points) AS totalPoints, RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS teamRank, month_date AS monthDate FROM chusan_user_team_points WHERE month_date = ?1 GROUP BY team_id, month_date ORDER BY teamRank", nativeQuery = true)
+    fun findTeamRanking(monthDate: LocalDate): List<RankingTeam>
+}
+
+interface RankingTeam {
+    val teamId: Long
+    val totalPoints: Int
+    val teamRank: Int
+    val monthDate: LocalDate
+}
+
+interface Chu3UserTeamInviteRepo: Chu3UserLinked<UserTeamInvite> {
+    fun findSingleByUserAndTeamId(user: Chu3UserData, teamId: Long): Optional<UserTeamInvite>
+
+    fun findByTeamId(teamId: Long): List<UserTeamInvite>
+}
+
 @Component
 class Chu3Repos(
     val userLoginBonus: Chu3UserLoginBonusRepo,
@@ -205,6 +241,10 @@ class Chu3Repos(
     val gameEvent: Chu3GameEventRepo,
     val gameGachaCard: Chu3GameGachaCardRepo,
     val gameGacha: Chu3GameGachaRepo,
+    val teams: Chu3TeamRepo,
+    val userTeam: Chu3UserTeamRepo,
+    val userTeamPoints: Chu3UserTeamPointsRepo,
+    val userTeamInvite: Chu3UserTeamInviteRepo,
     val gameLoginBonusPresets: Chu3GameLoginBonusPresetsRepo,
     val gameLoginBonus: Chu3GameLoginBonusRepo
 )
