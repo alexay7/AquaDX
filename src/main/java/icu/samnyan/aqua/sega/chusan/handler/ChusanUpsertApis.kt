@@ -79,25 +79,35 @@ fun ChusanController.upsertApiInit() {
             }
             db.userMisc.save(misc)
 
-            // Team Points
-            userTeamPoint?.getOrNull(0)?.let { tp ->
-                var previousUserPoints = 0L
-                val currentMonthPeriod = LocalDate.now().withDayOfMonth(1)
-                val utp = (db.userTeamPoints.findByUserAndTeamIdAndMonthDate(u, tp.teamId, currentMonthPeriod) ?: UserTeamPoints().apply {
-                    previousUserPoints = 0
-                    user = u
-                    teamId = teamId
-                    monthlyPoints = monthlyPoints
-                    monthDate = currentMonthPeriod
-                }).apply {
-                    previousUserPoints = this.monthlyPoints
-                    user = u
-                    teamId = tp.teamId
-                    monthlyPoints = tp.teamPoint
-                    monthDate = currentMonthPeriod
-                }
+            if (u.card?.aquaUser != null) {
+                val auid = u.card!!.aquaUser!!
 
-                db.userTeamPoints.save(utp)
+                // Team Points
+                userTeamPoint?.getOrNull(0)?.let { tp ->
+                    val foundTeam = db.teams.findById(tp.teamId)() ?: (404 - "Team not found")
+
+                    var previousUserPoints = 0L
+                    val currentMonthPeriod = LocalDate.now().withDayOfMonth(1)
+                    val utp = (db.userTeamPoints.findByUserAndTeamIdAndMonthDate(
+                        auid,
+                        tp.teamId,
+                        currentMonthPeriod
+                    )() ?: UserTeamPoints().apply {
+                        previousUserPoints = 0
+                        user = auid
+                        team = foundTeam
+                        monthlyPoints = monthlyPoints
+                        monthDate = currentMonthPeriod
+                    }).apply {
+                        previousUserPoints = this.monthlyPoints
+                        user = auid
+                        team = foundTeam
+                        monthlyPoints = tp.teamPoint
+                        monthDate = currentMonthPeriod
+                    }
+
+                    db.userTeamPoints.save(utp)
+                }
             }
 
             // Playlog

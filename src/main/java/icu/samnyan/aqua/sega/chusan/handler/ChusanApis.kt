@@ -313,26 +313,27 @@ fun ChusanController.chusanInit() {
         mapOf("userId" to uid, "userMapAreaList" to db.userMap.findAllByUserCardExtIdAndMapAreaIdIn(uid, maps))
     }
 
-    "GetUserTeam" {
+    "GetUserTeam" let@{
         val playDate = parsing { data["playDate"] as String }
         val currentPeriod = LocalDate.now().withDayOfMonth(1)
 
-        val userTeam = db.userTeam.findSingleByUser_Card_ExtId(uid)()
+        val auid = db.userData.findByCard_ExtId(uid)() ?.card?.aquaUser ?: return@let null
+        val userTeam =  db.userTeam.findSingleByUser(auid)()
 
         if (userTeam == null) mapOf("userId" to uid, "teamId" to 0, "teamRank" to 0, "teamName" to "", "emblemId" to 0, "userTeamPoint" to null)
         else {
             val teamPoint =
-                db.userTeamPoints.findByUser_Card_ExtIdAndTeamIdAndMonthDate(uid,userTeam.team.id,currentPeriod)()
+                db.userTeamPoints.findByUserAndTeamIdAndMonthDate(auid,userTeam.team.id,currentPeriod)()
             // Calculate the position of the team in the ranking
             val teamRank = userTeam.let { db.userTeamPoints.findTeamRankingPosition(it.team.id, currentPeriod)()?:99999L }
 
             // Calculate the color of the banner (Since XVerse)
             var emblemColor = XVerseTeamEmblems.GRAY
 
-            //  if (teamRank<=10) emblemColor = XVerseTeamEmblems.RAINBOW
-            //  else if (teamRank<=40) emblemColor = XVerseTeamEmblems.GOLD
-            //  else if (teamRank<=70) emblemColor = XVerseTeamEmblems.SILVER
-            if (userTeam.team.lastMonthPoints >= 500000) emblemColor = XVerseTeamEmblems.PURPLE
+            if (teamRank<=10) emblemColor = XVerseTeamEmblems.RAINBOW
+            else if (teamRank<=40) emblemColor = XVerseTeamEmblems.GOLD
+            else if (teamRank<=70) emblemColor = XVerseTeamEmblems.SILVER
+            else if (userTeam.team.lastMonthPoints >= 500000) emblemColor = XVerseTeamEmblems.PURPLE
             else if (userTeam.team.lastMonthPoints >= 300000) emblemColor = XVerseTeamEmblems.RED
             else if (userTeam.team.lastMonthPoints >= 150000) emblemColor = XVerseTeamEmblems.ORANGE
             else if (userTeam.team.lastMonthPoints >= 50000) emblemColor = XVerseTeamEmblems.GREEN

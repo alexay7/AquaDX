@@ -2,6 +2,7 @@
 
 package icu.samnyan.aqua.sega.chusan.model
 
+import icu.samnyan.aqua.net.db.AquaNetUser
 import icu.samnyan.aqua.net.games.GenericPlaylogRepo
 import icu.samnyan.aqua.net.games.GenericUserDataRepo
 import icu.samnyan.aqua.net.games.GenericUserMusicRepo
@@ -180,36 +181,51 @@ interface Chu3UserRegionsRepo: Chu3UserLinked<UserRegions> {
 }
 
 interface Chu3TeamRepo : JpaRepository<Team, Long> {
-    fun findSingleByOwner(owner: Chu3UserData): Optional<Team>
+    fun findSingleByOwner(owner: AquaNetUser): Optional<Team>
 }
 
-interface Chu3UserTeamRepo : Chu3UserLinked<UserTeam> {
+interface Chu3UserTeamRepo : JpaRepository<UserTeam, Long> {
+    fun findSingleByUser(user: AquaNetUser): Optional<UserTeam>
+
     // Count the number of unique members in a team
     @Query(value = "SELECT COUNT(DISTINCT user_id) FROM chusan_user_team WHERE team = ?1", nativeQuery = true)
     fun countTeamMembers(teamId: Long): Int
+
+    @Query(value = "SELECT au.au_id as userId, au.username as userName, au.display_name as displayName, ut.team, COALESCE(up.monthly_points, 0) as monthlyPoints FROM chusan_user_team ut LEFT JOIN aqua_net_user au ON ut.user_id = au.au_id LEFT JOIN chusan_user_team_points up ON ut.user_id = up.user_id AND up.team_id = ut.team AND up.month_date = ?2 WHERE ut.team = ?1", nativeQuery = true)
+    fun findTeamWithMembersAndPoints(teamId: Long, monthDate: LocalDate): List<TeamWithMembersAndPoints>
 }
 
-interface Chu3UserTeamPointsRepo: Chu3UserLinked<UserTeamPoints> {
-    fun findByUserAndTeamIdAndMonthDate(user: Chu3UserData, teamId: Long, monthDate: LocalDate): UserTeamPoints?
-    fun findByUser_Card_ExtIdAndTeamIdAndMonthDate(extId: Long, teamId: Long, monthDate: LocalDate): Optional<UserTeamPoints>
+interface TeamWithMembersAndPoints {
+    val userId: Long
+    val userName: String
+    val displayName: String
+    val team: Long
+    var monthlyPoints: Long?
+}
+
+interface Chu3UserTeamPointsRepo: JpaRepository<UserTeamPoints, Long> {
+    fun findByUserAndTeamIdAndMonthDate(user: AquaNetUser, teamId: Long, monthDate: LocalDate): Optional<UserTeamPoints>
 
     // Sort teams by points of all its users and get index of the team at the current period
-    @Query(value = "WITH ranked AS (SELECT team_id, SUM(monthly_points) AS total_points,RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS team_rank, month_date FROM chusan_user_team_points WHERE month_date >= ?2 GROUP BY team_id, month_date) SELECT team_rank FROM ranked WHERE team_id = ?1", nativeQuery = true)
+    @Query(value = "WITH ranked AS (SELECT team, SUM(monthly_points) AS total_points,RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS team_rank, month_date FROM chusan_user_team_points WHERE month_date >= ?2 GROUP BY team, month_date) SELECT team_rank FROM ranked WHERE team = ?1", nativeQuery = true)
     fun findTeamRankingPosition(teamId: Long, monthDate: LocalDate): Optional<Long>
 
-    @Query(value="SELECT team_id AS teamId, SUM(monthly_points) AS totalPoints, RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS teamRank, month_date AS monthDate FROM chusan_user_team_points WHERE month_date = ?1 GROUP BY team_id, month_date ORDER BY teamRank", nativeQuery = true)
+    @Query(value="SELECT team AS teamId, t.team_name as teamName, SUM(monthly_points) AS totalPoints, RANK() OVER (ORDER BY SUM(monthly_points) DESC) AS teamRank, month_date AS monthDate FROM chusan_user_team_points LEFT JOIN chusan_team t ON t.id = team WHERE month_date = ?1 GROUP BY team, month_date ORDER BY teamRank", nativeQuery = true)
     fun findTeamRanking(monthDate: LocalDate): List<RankingTeam>
 }
 
 interface RankingTeam {
     val teamId: Long
+    val teamName: String
     val totalPoints: Int
     val teamRank: Int
     val monthDate: LocalDate
 }
 
-interface Chu3UserTeamInviteRepo: Chu3UserLinked<UserTeamInvite> {
-    fun findSingleByUserAndTeamId(user: Chu3UserData, teamId: Long): Optional<UserTeamInvite>
+interface Chu3UserTeamInviteRepo: JpaRepository<UserTeamInvite ,Long> {
+    fun findByUser(user: AquaNetUser): List<UserTeamInvite>
+
+    fun findSingleByUserAndTeamId(user: AquaNetUser, teamId: Long): Optional<UserTeamInvite>
 
     fun findByTeamId(teamId: Long): List<UserTeamInvite>
 }

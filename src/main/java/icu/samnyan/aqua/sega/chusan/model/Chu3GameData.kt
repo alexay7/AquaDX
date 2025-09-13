@@ -2,8 +2,8 @@ package icu.samnyan.aqua.sega.chusan.model
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
+import icu.samnyan.aqua.net.db.AquaNetUser
 import icu.samnyan.aqua.net.games.BaseEntity
-import icu.samnyan.aqua.sega.chusan.model.userdata.Chu3UserData
 import jakarta.persistence.*
 import org.hibernate.annotations.Fetch
 import org.hibernate.annotations.FetchMode
@@ -102,9 +102,10 @@ class Team : IdExposedEntity() {
     var teamName: String? = null
     var lastMonthPoints: Long = 0
     @OneToOne
-    @JoinColumn(name = "owner", referencedColumnName = "id")
+    @JoinColumn(name = "owner")
     @Fetch(FetchMode.JOIN)
-    var owner: Chu3UserData? = null
+    @JsonIgnore
+    var owner: AquaNetUser = AquaNetUser()
 }
 
 enum class XVerseTeamEmblems(val type: Int) {

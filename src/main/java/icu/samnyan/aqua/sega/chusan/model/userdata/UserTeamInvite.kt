@@ -1,5 +1,8 @@
 package icu.samnyan.aqua.sega.chusan.model.userdata
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import icu.samnyan.aqua.net.db.AquaNetUser
+import icu.samnyan.aqua.net.games.BaseEntity
 import icu.samnyan.aqua.sega.chusan.model.Team
 import jakarta.persistence.Entity
 import jakarta.persistence.JoinColumn
@@ -11,7 +14,12 @@ import org.hibernate.annotations.FetchMode
 
 @Entity(name = "ChusanUserTeamInvite")
 @Table(name = "chusan_user_team_invite", uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "team"])])
-class UserTeamInvite : Chu3UserEntity() {
+class UserTeamInvite : BaseEntity() {
+    @JsonIgnore
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    var user: AquaNetUser = AquaNetUser()
+
     @ManyToOne
     @JoinColumn(name = "team", referencedColumnName = "id")
     @Fetch(FetchMode.JOIN)
